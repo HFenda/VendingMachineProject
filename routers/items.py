@@ -1,12 +1,26 @@
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, HTTPException, Depends,Path
 from pydantic import BaseModel, Field
 from typing import Optional, List
+from typing import Annotated
+from sqlalchemy.orm import Session
+from database import SessionLocal
+from models import Items
 
 router = APIRouter(
     prefix="/items",
     tags=["items"],
     responses={401: {"item": "Not found"}}
 )
+
+def get_db():
+    db=SessionLocal()
+    try:
+        yield db
+    finally:
+        db.close()
+
+db_dependency=Annotated[Session,Depends(get_db)]
+
 
 class Item(BaseModel):
     id: Optional[int] = None
@@ -15,16 +29,6 @@ class Item(BaseModel):
     price: float = Field(gt=0)
     quantity: int = Field(gt=-1, lt=21)
 
-ITEMS: List[Item] = [
-    Item(id=1, title="Chocolate bar", brand="Dorina", price=1.5, quantity=15),
-    Item(id=2, title="Potato chips", brand="Chio", price=2.4, quantity=8),
-    Item(id=3, title="Soda", brand="Coca-Cola", price=1.2, quantity=10),
-    Item(id=4, title="Water", brand="Oaza", price=0.8, quantity=9),
-    Item(id=5, title="Candy", brand="Skittles", price=1.5, quantity=8),
-    Item(id=6, title="Crackers", brand="Tuc", price=1.8, quantity=6),
-    Item(id=7, title="Energy drink", brand="Red Bull", price=2.2, quantity=8),
-    Item(id=8, title="Ice Tea", brand="Lipton", price=1.0, quantity=6)
-]
 
 def find_item_id():
     if ITEMS:
@@ -34,34 +38,62 @@ def find_item_id():
     return id
 
 @router.get("/all-items")
-async def get_all_items():
-    return ITEMS
-
-@router.get("/{item_brand}")
-async def get_item_by_brand(item_brand: str):
-    for item in ITEMS:
-        if item.brand.casefold() == item_brand.casefold():
-            return item
-    raise HTTPException(status_code=404, detail="Item not found")
+async def get_all_items(db:db_dependency):
+    try:
+        return db.query(Items).all()
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+@router.get("/{item_id}")
+async def get_item_by_brand(db:db_dependency ,item_id: str):
+    try:
+        items_model=db.query(Items).filter(Items.id==item_id).first()
+        if items_model is not None:
+            return items_model
+        else:
+            raise HTTPException(status_code=404, detail="Item not found")
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
 
 @router.post("/add-item")
-async def create_item(item_request: Item):
-    new_item = item_request
-    new_item.id = find_item_id()
-    ITEMS.append(new_item)
-    return new_item
+async def create_item(db: db_dependency ,item_request: Item):
+    try:
+        items_model=Items(**item_request.dict())
+        db.add(items_model)
+        db.commit()
+        return items_model
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
 
-@router.put("/update-item")
-async def update_item(item_request: Item):
-    for i in range(len(ITEMS)):
-        if ITEMS[i].id == item_request.id:
-            ITEMS[i] = item_request
-            return item_request
-    raise HTTPException(status_code=404, detail="Item not found")
+@router.put("/update-item/{item_id}")
+async def update_item(db:db_dependency,
+                      item_request: Item,
+                      item_id: int=Path(gt=0)):
+    try:
+        items_model=db.query(Items).filter(Items.id==item_id).first()
+        if items_model is not None:
+            items_model.title= item_request.title
+            items_model.brand= item_request.brand
+            items_model.price= item_request.price
+            items_model.quantity= item_request.quantity
 
-@router.delete("/delete-item/{item_brand}")
-async def delete_item(item_brand: str):
-    for i in range(len(ITEMS)):
-        if ITEMS[i].brand.casefold() == item_brand.casefold():
-            return ITEMS.pop(i)
-    raise HTTPException(status_code=404, detail="Item not found")
+            db.add(items_model)
+            db.commit()
+            return items_model
+        else:
+            raise HTTPException(status_code=404, detail="Item not found")
+
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+@router.delete("/delete-item/{item_id}")
+async def delete_item(db:db_dependency, item_id: int=Path(gt=0)):
+    try:
+        items_model=db.query(Items).filter(Items.id==item_id).first()
+        if items_model is not None:
+            db.delete(items_model)
+            db.commit()
+            return items_model
+        else:
+            raise HTTPException(status_code=404, detail="Item not found")
+    except:
+        raise HTTPException(status_code=404, detail="Item not found")

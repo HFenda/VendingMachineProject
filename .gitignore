@@ -1,13 +1,16 @@
 # Python
-*.pyc
 __pycache__/
-*.pyo
-*.pyd
+*.py[cod]
+.python-version
 
-# Environment
+# Virtual Environment
+venv/
+.venv/
+env/
+
+# IDE
+.idea/
+.vscode/
+
+# Environment files
 .env
-
-# Directories
-Include/
-Lib/
-Scripts/

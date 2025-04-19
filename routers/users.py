@@ -1,6 +1,11 @@
-from fastapi import Body, APIRouter, HTTPException
+from fastapi import Body, APIRouter, HTTPException, Depends
 from routers import items
 from pydantic import BaseModel
+from typing import Annotated
+
+from models import Users,Items
+from sqlalchemy.orm import Session
+from database import SessionLocal
 
 router = APIRouter(
     prefix="/users",
@@ -8,51 +13,77 @@ router = APIRouter(
     responses={401: {"user": "Can't find user"}},
 )
 
+def get_db():
+    db=SessionLocal()
+    try:
+        yield db
+    finally:
+        db.close()
+
+db_dependency=Annotated[Session,Depends(get_db)]
+
+
 class User(BaseModel):
-    type: str
+    admin: bool
     username: str
     password: str
-
-USERS = [
-    User(type="admin", username="admin1", password="admin1"),
-    User(type="user", username="user1", password="user1")
-]
 
 class ItemRequest(BaseModel):
     name: str
     quantity: int
 
-@router.post("/purchase/{user_type}")
-async def purchase(user_type: str, purchase_item: ItemRequest):
-    if user_type == "user":
-        for item in items.ITEMS:
-            if item.brand.casefold() == purchase_item.name.casefold():
-                if item.quantity >= purchase_item.quantity:
-                    item.quantity -= purchase_item.quantity
-                    return {"message": "Item has been purchased"}
-                raise HTTPException(status_code=400, detail="Not enough stock available")
-        raise HTTPException(status_code=404, detail="Item not found")
-    raise HTTPException(status_code=400, detail="That user can't purchase items")
+@router.put("/purchase/{user_type}")
+async def purchase(admin: bool, purchase_item: ItemRequest, db:db_dependency):
+    try:
+        if not admin:
+            items_model=db.query(Items).filter(Items.brand==purchase_item.name).first()
+            if items_model is not None:
+                items_model.brand = purchase_item.name
+                items_model.quantity -= purchase_item.quantity
+
+                db.add(items_model)
+                db.commit()
+                return {"message":f"Item {items_model.brand} has been purchased - Quantity: {purchase_item.quantity}"}
+            else:
+                raise HTTPException(status_code=404, detail="Item not found")
+        else:
+            HTTPException(status_code=404, detail="Item can't be purchased by this user")
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
 
 @router.post("/restock/{user_type}")
-async def restock(user_type: str, restock_item: ItemRequest):
-    if user_type == "admin":
-        for item in items.ITEMS:
-            if item.brand.casefold() == restock_item.name.casefold():
-                if item.quantity < 20:
-                    item.quantity += restock_item.quantity
-                    return {"message": "Item has been successfully restocked"}
-                raise HTTPException(status_code=400, detail="Stock exceeds maximum limit")
-        raise HTTPException(status_code=404, detail="Item not found")
-    raise HTTPException(status_code=400, detail="That user can't restock items")
+async def restock(admin: bool, restock_item: ItemRequest, db:db_dependency):
+    try:
+        if admin:
+            items_model=db.query(Items).filter(Items.brand==restock_item.name).first()
+            if items_model is not None:
+                items_model.brand = restock_item.name
+                items_model.quantity += restock_item.quantity
 
-@router.get("/total-revenue/{user_type}/{brand}")
-async def total_revenue(user_type: str, brand: str):
-    if user_type == "admin":
-        for item in items.ITEMS:
-            if item.brand.casefold() == brand.casefold():
-                total_sold = 20 - item.quantity
-                revenue = total_sold * item.price
-                return {"total_revenue": revenue}
-        raise HTTPException(status_code=404, detail="Item not found")
-    raise HTTPException(status_code=400, detail="You don't have access to those information")
+                db.add(items_model)
+                db.commit()
+                return {"message":f"Item {items_model.brand} has been restocked - Current quantity: {items_model.quantity}"}
+            else:
+                raise HTTPException(status_code=404, detail="Item not found")
+        else:
+            HTTPException(status_code=404, detail="Item can't be restocked by this user")
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.get("/total-revenue/{brand}")
+async def total_revenue(admin: bool, brand: str, db:db_dependency):
+    try:
+        if admin:
+            items_model=db.query(Items).filter(Items.brand==brand).first()
+            if items_model is not None:
+                quantity_difference=20-items_model.quantity
+                total = quantity_difference * items_model.price
+                return {"message":f"Items {items_model.brand} total revenue - {total} KM"}
+            else:
+                raise HTTPException(status_code=404, detail="Item not found")
+        else:
+            HTTPException(status_code=404, detail="Total revenue can't be seen by this user")
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
