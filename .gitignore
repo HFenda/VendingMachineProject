@@ -1,16 +1,19 @@
 # Python
 __pycache__/
-*.py[cod]
-.python-version
-
-# Virtual Environment
+*.pyc
 venv/
 .venv/
 env/
 
-# IDE
-.idea/
-.vscode/
+# Next.js
+node_modules/
+.next/
+out/
 
-# Environment files
+# Environments
 .env
+.env.local
+
+# System
+.DS_Store
+.vscode/

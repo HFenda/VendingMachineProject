@@ -3,6 +3,7 @@ from pydantic import BaseModel, Field
 from typing import Optional, List
 from typing import Annotated
 from sqlalchemy.orm import Session
+from sqlalchemy import func
 from database import SessionLocal
 from models import Items
 
@@ -29,6 +30,9 @@ class Item(BaseModel):
     price: float = Field(gt=0)
     quantity: int = Field(gt=-1, lt=21)
 
+    class Config:
+        orm_mode = True
+
 
 def find_item_id():
     if ITEMS:
@@ -38,11 +42,12 @@ def find_item_id():
     return id
 
 @router.get("/all-items")
-async def get_all_items(db:db_dependency):
+async def get_all_items(db: db_dependency):
     try:
-        return db.query(Items).all()
+        return db.query(Items).order_by(Items.id.asc()).all()
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
+    
 @router.get("/{item_id}")
 async def get_item_by_brand(db:db_dependency ,item_id: str):
     try:
@@ -54,13 +59,18 @@ async def get_item_by_brand(db:db_dependency ,item_id: str):
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
-@router.post("/add-item")
-async def create_item(db: db_dependency ,item_request: Item):
+@router.post("/add-item", response_model=Item)
+async def create_item(item_request: Item, db: Session = Depends(get_db)):
     try:
-        items_model=Items(**item_request.dict())
-        db.add(items_model)
+        max_id = db.query(func.max(Items.id)).scalar()
+        next_id = (max_id or 0) + 1 
+
+        item_data = Items(id=next_id, **item_request.dict(exclude={"id"}))
+
+        db.add(item_data)
         db.commit()
-        return items_model
+        db.refresh(item_data)
+        return item_data
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
