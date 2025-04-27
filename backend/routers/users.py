@@ -1,4 +1,4 @@
-from fastapi import Body, APIRouter, HTTPException, Depends
+from fastapi import Body, APIRouter, HTTPException, Depends,Query
 from routers import items
 from pydantic import BaseModel
 from typing import Annotated
@@ -29,61 +29,72 @@ class User(BaseModel):
     password: str
 
 class ItemRequest(BaseModel):
-    name: str
+    id: int
     quantity: int
 
+class LoginRequest(BaseModel):
+    username: str
+    password: str
+
 @router.put("/purchase/{user_type}")
-async def purchase(admin: bool, purchase_item: ItemRequest, db:db_dependency):
+async def purchase(
+    user_type: str,
+    admin: bool = Query(...),
+    db: Session = Depends(get_db),  
+    purchase_item: ItemRequest = Body(...)
+):
     try:
         if not admin:
-            items_model=db.query(Items).filter(Items.brand==purchase_item.name).first()
+            items_model = db.query(Items).filter(Items.id == purchase_item.id).first()
             if items_model is not None:
-                items_model.brand = purchase_item.name
                 items_model.quantity -= purchase_item.quantity
-
                 db.add(items_model)
                 db.commit()
-                return {"message":f"Item {items_model.brand} has been purchased - Quantity: {purchase_item.quantity}"}
+                return {"message": f"Item {items_model.brand} has been purchased - Quantity: {purchase_item.quantity}"}
             else:
                 raise HTTPException(status_code=404, detail="Item not found")
         else:
-            HTTPException(status_code=404, detail="Item can't be purchased by this user")
+            raise HTTPException(status_code=403, detail="Item can't be purchased by this user")
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
-
-
-@router.post("/restock/{user_type}")
-async def restock(admin: bool, restock_item: ItemRequest, db:db_dependency):
-    try:
-        if admin:
-            items_model=db.query(Items).filter(Items.brand==restock_item.name).first()
-            if items_model is not None:
-                items_model.brand = restock_item.name
-                items_model.quantity += restock_item.quantity
-
-                db.add(items_model)
-                db.commit()
-                return {"message":f"Item {items_model.brand} has been restocked - Current quantity: {items_model.quantity}"}
-            else:
-                raise HTTPException(status_code=404, detail="Item not found")
-        else:
-            HTTPException(status_code=404, detail="Item can't be restocked by this user")
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
-
 
 @router.get("/total-revenue/{brand}")
-async def total_revenue(admin: bool, brand: str, db:db_dependency):
+async def total_revenue(
+    brand: str,
+    admin: bool = Query(...),
+    db: Session = Depends(get_db)
+):
     try:
         if admin:
-            items_model=db.query(Items).filter(Items.brand==brand).first()
+            items_model = db.query(Items).filter(Items.brand == brand).first()
             if items_model is not None:
-                quantity_difference=20-items_model.quantity
+                quantity_difference = 20 - items_model.quantity
                 total = quantity_difference * items_model.price
-                return {"message":f"Items {items_model.brand} total revenue - {total} KM"}
+                return {"message": f"Items {items_model.brand} total revenue - {total} KM"}
             else:
                 raise HTTPException(status_code=404, detail="Item not found")
         else:
-            HTTPException(status_code=404, detail="Total revenue can't be seen by this user")
+            raise HTTPException(status_code=403, detail="Total revenue can't be seen by this user")
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+@router.post("/login")
+async def login(user_credentials: LoginRequest, db: db_dependency):
+    try:
+        user = db.query(Users).filter(Users.username == user_credentials.username).first()
+
+        if user is None:
+            raise HTTPException(status_code=401, detail="Invalid username or password")
+
+        db_password = user.password or ""
+        input_password = user_credentials.password or ""
+
+        if db_password != input_password:
+            raise HTTPException(status_code=401, detail="Invalid username or password")
+
+        role = "admin" if user.admin else "user"
+
+        return {"message": "Login successful", "role": role}
+    
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
