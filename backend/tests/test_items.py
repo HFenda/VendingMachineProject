@@ -65,13 +65,11 @@ def test_update_item():
     if isinstance(updated_item, dict) and "title" in updated_item:
         assert updated_item["title"] == "Soda Lite"
     else:
-        # If the endpoint returns just a message, verify the update with a GET
         get_response = client.get(f"/items/{item_id}")   
         assert get_response.status_code == 200
         assert get_response.json()["title"] == "Soda Lite"
 
 def test_delete_item():
-    # Create item with proper data types
     payload = {
         "title": "Juice",
         "brand": "FruitCo",
@@ -82,13 +80,11 @@ def test_delete_item():
     assert create_response.status_code == 200
     item_id = create_response.json()["id"]
     
-    # Delete item
     response = client.delete(f"/items/delete-item/{item_id}")
     assert response.status_code == 200
     
-    # Verify deletion
     response = client.get(f"/items/{item_id}")
-    assert response.status_code in [404, 500]  # Adjust based on your API behavior
+    assert response.status_code in [404, 500]
 
 def test_create_item_missing_field():
     payload = {
@@ -97,11 +93,10 @@ def test_create_item_missing_field():
         "quantity": 10
     }
     response = client.post("/items/add-item", json=payload)
-    assert response.status_code == 422  # Unprocessable Entity
+    assert response.status_code == 422
 
 
 def test_create_item_invalid_price():
-    # Price is string instead of float
     payload = {
         "title": "Invalid Price Item",
         "brand": "BadBrand",
@@ -109,7 +104,7 @@ def test_create_item_invalid_price():
         "quantity": 5
     }
     response = client.post("/items/add-item", json=payload)
-    assert response.status_code == 422  # Should fail validation
+    assert response.status_code == 422
 
 
 def test_update_nonexistent_item():
@@ -119,12 +114,10 @@ def test_update_nonexistent_item():
         "price": 9.9,
         "quantity": 1
     }
-    # ID 9999 is assumed to not exist
     response = client.put("/items/update-item/9999", json=update_payload)
-    assert response.status_code in [404, 500]  # Should fail
+    assert response.status_code in [404, 500]
 
 
 def test_delete_nonexistent_item():
-    # Try deleting an item with a high non-existent ID
     response = client.delete("/items/delete-item/9999")
-    assert response.status_code in [404, 500]  # Should fail
+    assert response.status_code in [404, 500] 
