@@ -22,6 +22,8 @@ export default function AdminPage() {
   });
   const [addItemError, setAddItemError] = useState('');
   const [addItemSuccess, setAddItemSuccess] = useState('');
+  const [updateItemError, setUpdateItemError] = useState('');
+  const [updateItemSuccess, setUpdateItemSuccess] = useState('');
 
   useEffect(() => {
     fetch('http://localhost:8000/items/all-items')
@@ -50,8 +52,12 @@ export default function AdminPage() {
   };
 
   const handleAddItem = async () => {
+    // Clear everything else first
     setAddItemError('');
     setAddItemSuccess('');
+    setUpdateItemError('');
+    setUpdateItemSuccess('');
+  
     try {
       const res = await fetch('http://localhost:8000/items/add-item', {
         method: 'POST',
@@ -66,11 +72,16 @@ export default function AdminPage() {
       setNewItem({ id: 0, title: '', brand: '', price: 0, quantity: 0 });
       setAddItemSuccess('Item added successfully!');
     } catch (err) {
-      setAddItemError('Error adding item. Please check the fields and try again.');
+      setAddItemError(`${err} Please check the fields and try again.`);
     }
   };
-
+  
   const handleUpdateItem = async (updatedItem: Item) => {
+    setUpdateItemError('');
+    setUpdateItemSuccess('');
+    setAddItemError('');
+    setAddItemSuccess('');
+  
     try {
       const res = await fetch(`http://localhost:8000/items/update-item/${updatedItem.id}`, {
         method: 'PUT',
@@ -78,16 +89,18 @@ export default function AdminPage() {
         body: JSON.stringify(updatedItem),
       });
       if (!res.ok) {
-        throw new Error('Failed to update item.');
+        const errorDetails = await res.json();
+        throw new Error(`Failed to update item.`);
       }
       const updated = await res.json();
       setItems((prevItems) =>
         prevItems.map((item) => (item.id === updated.id ? { ...item, ...updated } : item))
       );
       setNewItem({ id: 0, title: '', brand: '', price: 0, quantity: 0 });
-      await fetchItems(); 
+      setUpdateItemSuccess('Item updated successfully!');
+      await fetchItems();
     } catch (err) {
-      console.error('Error updating item:', err);
+      setUpdateItemError(`${err} Please try again.`);
     }
   };
 
@@ -101,7 +114,7 @@ export default function AdminPage() {
       }
       setItems((prevItems) => prevItems.filter((item) => item.id !== id));
     } catch (err) {
-      console.error('Error deleting item:', err);
+      console.error(`Error deleting item.`);
     }
   };
 
@@ -114,9 +127,22 @@ export default function AdminPage() {
       const data = await res.json();
       alert(data.message);
     } catch (err) {
-      console.error('Error fetching revenue:', err);
-      alert('Error fetching revenue. You might not have permission.');
+      alert(`${err} Error fetching revenue.`);
     }
+  };
+
+  const handleResetForm = () => {
+    setNewItem({
+      id: 0,
+      title: '',
+      brand: '',
+      price: 0,
+      quantity: 0,
+    });
+    setUpdateItemError('');
+    setUpdateItemSuccess('');
+    setAddItemError('');
+    setAddItemSuccess('');
   };
 
   return (
@@ -163,8 +189,22 @@ export default function AdminPage() {
         >
           {newItem.id ? 'Update Item' : 'Add Item'}
         </button>
+        {newItem.id > 0 && (
+          <button
+            onClick={handleResetForm}
+            className="mt-4 ml-2 bg-gray-500 text-white px-4 py-2 rounded hover:bg-gray-600"
+          >
+            Cancel
+          </button>
+        )}
+
+        {/* Add Item Messages */}
         {addItemError && <p className="text-red-500 mt-2">{addItemError}</p>}
         {addItemSuccess && <p className="text-green-600 mt-2">{addItemSuccess}</p>}
+
+        {/* Update Item Messages */}
+        {updateItemError && <p className="text-red-500 mt-2">{updateItemError}</p>}
+        {updateItemSuccess && <p className="text-green-600 mt-2">{updateItemSuccess}</p>}
       </div>
 
       {/* Item List */}
