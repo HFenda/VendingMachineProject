@@ -3,11 +3,9 @@ from sqlalchemy.orm import sessionmaker
 from sqlalchemy.ext.declarative import declarative_base
 import sys
 
-# Dva URL-a za tvoje baze
 PROD_DATABASE_URL = "postgresql://postgres:harun@localhost/VendingMachineAPIDatabase"
 TEST_DATABASE_URL = "postgresql://postgres:harun@localhost/VendingMachineAPIDatabaseTest"
 
-# Ako pokrećeš pytest, koristi TEST baza
 DATABASE_URL = TEST_DATABASE_URL if "pytest" in sys.modules else PROD_DATABASE_URL
 
 engine = create_engine(DATABASE_URL)

@@ -34,13 +34,6 @@ class Item(BaseModel):
         from_attributes = True  # Changed from orm_mode for Pydantic v2
 
 
-def find_item_id():
-    if ITEMS:
-        id = ITEMS[-1].id + 1
-    else:
-        id = 1
-    return id
-
 @router.get("/all-items")
 async def get_all_items(db: db_dependency):
     try:

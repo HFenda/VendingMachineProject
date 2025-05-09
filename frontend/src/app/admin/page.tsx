@@ -154,6 +154,7 @@ export default function AdminPage() {
         <h2 className="text-2xl font-bold mb-4">Add/Update Item</h2>
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           <input
+            id="title"
             type="text"
             placeholder="Title"
             value={newItem.title}
@@ -161,6 +162,7 @@ export default function AdminPage() {
             className="border px-3 py-2 rounded"
           />
           <input
+            id="brand"
             type="text"
             placeholder="Brand"
             value={newItem.brand}
@@ -168,6 +170,7 @@ export default function AdminPage() {
             className="border px-3 py-2 rounded"
           />
           <input
+            id="price"
             type="number"
             step="0.01"
             placeholder="Price"
@@ -176,6 +179,7 @@ export default function AdminPage() {
             className="border px-3 py-2 rounded"
           />
           <input
+            id="quantity"
             type="number"
             placeholder="Quantity"
             value={newItem.quantity}
@@ -184,6 +188,7 @@ export default function AdminPage() {
           />
         </div>
         <button
+          id="add_item"
           onClick={newItem.id > 0 ? () => handleUpdateItem(newItem) : handleAddItem}
           className="mt-4 bg-green-600 text-white px-4 py-2 rounded hover:bg-green-700"
         >
@@ -221,12 +226,14 @@ export default function AdminPage() {
                 {item.quantity > 0 ? `In Stock (${item.quantity})` : 'Out of Stock'}
               </p>
               <button
+                id="delete_item"
                 onClick={() => handleDeleteItem(item.id)}
                 className="mt-2 ml-2 bg-red-500 text-white px-3 py-1 rounded hover:bg-red-600"
               >
                 Delete
               </button>
               <button
+                id="edit_item"
                 onClick={() => setNewItem(item)}
                 className="mt-2 ml-2 bg-yellow-500 text-white px-3 py-1 rounded hover:bg-yellow-600"
               >

@@ -106,6 +106,7 @@ export default function UserPage() {
           />
           <button
             onClick={handleSearch}
+            type='submit'
             className="bg-blue-600 text-white px-4 py-1 rounded hover:bg-blue-700"
           >
             Search
